@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Gallery</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-dark">
+
+<div class="container" style="max-width: 420px; margin-top: 80px;" id="pinSection">
+  <div class="card shadow">
+    <div class="card-body p-4 text-center">
+      <h4 class="mb-3">🔒 Enter Gallery PIN</h4>
+      <p class="text-muted small">Enter the 6-digit PIN you received to view this gallery.</p>
+      <input type="text" class="form-control text-center mb-3" id="pinInput"
+             maxlength="6" placeholder="000000" style="font-size:1.5rem; letter-spacing:0.3rem;">
+      <button class="btn btn-primary w-100" onclick="verifyPin()">View Gallery</button>
+      <div id="pinError" class="alert alert-danger mt-3 d-none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container d-none" id="gallerySection" style="max-width: 1100px; margin-top: 40px; padding-bottom: 40px;">
+  <h3 class="text-white mb-4 text-center">📷 Gallery</h3>
+  <div class="row g-3" id="photoGrid"></div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal fade" id="lightbox" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark">
+      <div class="modal-body p-0 text-center">
+        <img id="lightboxImg" src="" class="img-fluid">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function getShareToken() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('t');
+}
+
+const shareToken = getShareToken();
+if (!shareToken) {
+  document.getElementById('pinSection').innerHTML =
+    '<div class="alert alert-danger">No gallery link provided. Please use the link you were given.</div>';
+}
+
+async function verifyPin() {
+  const pin = document.getElementById('pinInput').value.trim();
+  const errorBox = document.getElementById('pinError');
+  errorBox.classList.add('d-none');
+
+  if (!/^\d{6}$/.test(pin)) {
+    errorBox.textContent = 'Please enter a 6-digit PIN';
+    errorBox.classList.remove('d-none');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/public/gallery/' + shareToken + '/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Could not verify PIN');
+
+    sessionStorage.setItem('galleryAccess_' + shareToken, data.accessToken);
+    loadPhotos(data.accessToken);
+  } catch (e) {
+    errorBox.textContent = e.message;
+    errorBox.classList.remove('d-none');
+  }
+}
+
+async function loadPhotos(accessToken) {
+  try {
+    const res = await fetch('/api/public/gallery/' + shareToken + '/photos', {
+      headers: { 'X-Gallery-Access': accessToken }
+    });
+    const photos = await res.json();
+    if (!res.ok) throw new Error((photos && photos.message) || 'Could not load photos');
+
+    document.getElementById('pinSection').classList.add('d-none');
+    document.getElementById('gallerySection').classList.remove('d-none');
+
+    const grid = document.getElementById('photoGrid');
+    grid.innerHTML = '';
+    photos.forEach(p => {
+      const col = document.createElement('div');
+      col.className = 'col-6 col-md-4 col-lg-3';
+      col.innerHTML = `<img src="${p.url}" class="img-fluid rounded shadow-sm" style="cursor:pointer; height:200px; width:100%; object-fit:cover;" onclick="openLightbox('${p.url}')">`;
+      grid.appendChild(col);
+    });
+  } catch (e) {
+    document.getElementById('pinError').textContent = e.message;
+    document.getElementById('pinError').classList.remove('d-none');
+  }
+}
+
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  new bootstrap.Modal(document.getElementById('lightbox')).show();
+}
+
+// If this browser already verified the PIN earlier in this tab session, skip straight to photos.
+const savedAccess = shareToken ? sessionStorage.getItem('galleryAccess_' + shareToken) : null;
+if (savedAccess) {
+  loadPhotos(savedAccess);
+}
+</script>
+</body>
+</html>
