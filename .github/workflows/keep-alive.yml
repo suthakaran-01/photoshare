@@ -1,0 +1,14 @@
+name: Keep App Alive
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the live app
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" https://photoshare-5nmr.onrender.com/api/events
