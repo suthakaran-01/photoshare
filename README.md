@@ -68,6 +68,11 @@ event ownership checks, gallery publishing, and PIN verification
 in-memory H2 database (application-test.properties, @ActiveProfiles("test")).
 
 ## Known Limitations
+- The database (Aiven free tier) can occasionally be auto-powered-off 
+  after periods of inactivity, which is documented, known behavior of 
+  Aiven's free plan. An UptimeRobot monitor (5-min health checks) 
+  helps reduce this; if the live link doesn't load, it usually means 
+  the database needs a manual restart from the Aiven dashboard.
 - Render's free tier sleeps after inactivity; first request after idle
   can take 30-60 seconds
 - PIN brute-force limiting is in-memory (per-instance), not shared
